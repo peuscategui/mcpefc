@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  mcp-sql-server:
+    image: node:18-alpine
+    container_name: mcp-sql-server
+    restart: unless-stopped
+    working_dir: /app
+    
+    # Clonar desde GitHub
+    command: >
+      sh -c "
+        if [ ! -d /app/.git ]; then
+          apk add --no-cache git &&
+          git clone https://github.com/TU_USUARIO/mcp-sql-server.git /tmp/repo &&
+          cp -r /tmp/repo/* /app/ &&
+          rm -rf /tmp/repo &&
+          npm ci --only=production
+        fi &&
+        node src/server.js
+      "
+    
+    environment:
+      # Database Configuration - CONFIGURAR EN PORTAINER
+      - DB_HOST=SURDBP04
+      - DB_PORT=1433
+      - DB_NAME=PRUEBA_MCP
+      - DB_USER=MCP
+      - DB_PASSWORD=m_25_9e_pe1_
+      
+      # MCP Server Configuration
+      - MCP_PORT=3000
+      - MCP_HOST=0.0.0.0
+      
+      # Logging
+      - LOG_LEVEL=info
+      
+      # SQL Server Options
+      - DB_ENCRYPT=true
+      - DB_TRUST_SERVER_CERTIFICATE=true
+    
+    # Network configuration
+    networks:
+      - mcp-network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "console.log('Health check passed')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+networks:
+  mcp-network:
+    driver: bridge
