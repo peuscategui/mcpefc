@@ -25,7 +25,7 @@ services:
         rm -rf /tmp/repo &&
         echo '📚 Instalando dependencias...' &&
         cd /app &&
-        npm ci --only=production &&
+        npm install --production &&
         echo '🔌 Iniciando servidor MCP HTTP...' &&
         node mcp-http-server.js
       "
