@@ -24,7 +24,7 @@ nc -zv SURDBP04 1433
    - **Upload del docker-compose.yml**
 
 3. **Subir archivos**
-   - Sube el archivo `docker-compose-portainer.yml`
+   - Sube el archivo `image.pngdocker-compose-portainer.yml`
    - O copia el contenido en el editor
 
 ### **Paso 3: Configurar Variables de Entorno**

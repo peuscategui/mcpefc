@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "mcp-sql-server-production": {
+      "command": "ssh",
+      "args": [
+        "usuario@192.168.40.197",
+        "docker exec -i mcp-sql-server_mcp-sql-server node src/server.js"
+      ],
+      "env": {
+        "DB_HOST": "192.168.2.18",
+        "DB_PORT": "1433",
+        "DB_NAME": "PRUEBA_MCP",
+        "DB_USER": "MCP",
+        "DB_PASSWORD": "m_25_9e_pe1_",
+        "DB_ENCRYPT": "true",
+        "DB_TRUST_SERVER_CERTIFICATE": "true",
+        "LOG_LEVEL": "info"
+      }
+    }
+  }
+}

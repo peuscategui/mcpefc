@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "mcp-sql-server-production": {
+      "command": "node",
+      "args": [
+        "c:\\desk\\mcp-server\\src\\server.js"
+      ],
+      "env": {
+        "DB_HOST": "192.168.2.18",
+        "DB_PORT": "1433", 
+        "DB_NAME": "PRUEBA_MCP",
+        "DB_USER": "MCP",
+        "DB_PASSWORD": "m_25_9e_pe1_",
+        "DB_ENCRYPT": "true",
+        "DB_TRUST_SERVER_CERTIFICATE": "true",
+        "LOG_LEVEL": "info"
+      }
+    }
+  }
+}
