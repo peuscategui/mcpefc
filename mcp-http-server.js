@@ -1,12 +1,13 @@
 // Servidor MCP HTTP para conexiones remotas
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { HttpServerTransport } from '@modelcontextprotocol/sdk/server/http.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import sql from 'mssql';
 import dotenv from 'dotenv';
+import express from 'express';
+import cors from 'cors';
 
 dotenv.config();
 
@@ -239,12 +240,55 @@ class MCPHTTPServer {
     try {
       await this.connectToDatabase();
       
-      const transport = new HttpServerTransport('/mcp', this.server);
+      const app = express();
       const port = process.env.MCP_PORT || 3000;
       
-      transport.listen(port, () => {
+      // Middleware
+      app.use(cors());
+      app.use(express.json());
+      
+      // Health check endpoint
+      app.get('/health', (req, res) => {
+        res.json({ 
+          status: 'ok', 
+          message: 'MCP SQL Server HTTP is running',
+          timestamp: new Date().toISOString()
+        });
+      });
+      
+      // MCP endpoint
+      app.post('/mcp', async (req, res) => {
+        try {
+          const { method, params } = req.body;
+          
+          if (method === 'tools/list') {
+            const result = await this.server.request({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'tools/list',
+              params: {}
+            });
+            res.json(result);
+          } else if (method === 'tools/call') {
+            const result = await this.server.request({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'tools/call',
+              params: params
+            });
+            res.json(result);
+          } else {
+            res.status(400).json({ error: 'Method not supported' });
+          }
+        } catch (error) {
+          res.status(500).json({ error: error.message });
+        }
+      });
+      
+      app.listen(port, () => {
         console.log(`🚀 Servidor MCP HTTP iniciado en puerto ${port}`);
-        console.log(`📍 Endpoint: http://localhost:${port}/mcp`);
+        console.log(`📍 Health check: http://localhost:${port}/health`);
+        console.log(`📍 MCP endpoint: http://localhost:${port}/mcp`);
       });
       
     } catch (error) {
