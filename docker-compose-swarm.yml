@@ -14,8 +14,8 @@ services:
           memory: 512M
         reservations:
           memory: 256M
-      networks:
-        - mcp-network
+    networks:
+      - mcp-network
     command: >
       sh -c "
         echo '🚀 Iniciando MCP Server...' &&
