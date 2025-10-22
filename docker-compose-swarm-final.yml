@@ -27,7 +27,7 @@ services:
         cd /app &&
         npm install --production &&
         echo '🔌 Iniciando servidor MCP TCP...' &&
-        node mcp-tcp-server.js
+        node mcp-tcp-simple.js
       "
     environment:
       - DB_HOST=${DB_HOST}
