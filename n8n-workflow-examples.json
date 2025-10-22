@@ -1,0 +1,183 @@
+{
+  "workflows": [
+    {
+      "name": "MCP SQL Query Workflow",
+      "description": "Workflow básico para ejecutar consultas SQL usando MCP",
+      "nodes": [
+        {
+          "name": "Manual Trigger",
+          "type": "n8n-nodes-base.manualTrigger",
+          "position": [240, 300],
+          "parameters": {}
+        },
+        {
+          "name": "Function Node - MCP Client",
+          "type": "n8n-nodes-base.function",
+          "position": [460, 300],
+          "parameters": {
+            "functionCode": "// Código para Function Node en n8n\nconst { processMCPRequest } = require('C:\\\\desk\\\\mcp-server\\\\n8n-mcp-client.js');\n\nasync function main() {\n  try {\n    // Configuración del cliente MCP\n    const config = {\n      env: {\n        DB_HOST: 'SURDBP04',\n        DB_PORT: '1433',\n        DB_NAME: 'PRUEBA_MCP',\n        DB_USER: 'MCP',\n        DB_PASSWORD: 'm_25_9e_pe1_'\n      }\n    };\n    \n    // Ejecutar consulta\n    const result = await processMCPRequest('execute_query', {\n      query: 'SELECT TOP 10 * FROM temporal_cliente',\n      params: {}\n    }, config);\n    \n    return result;\n  } catch (error) {\n    return {\n      success: false,\n      error: error.message,\n      timestamp: new Date().toISOString()\n    };\n  }\n}\n\nreturn await main();"
+          }
+        },
+        {
+          "name": "Set Node - Format Response",
+          "type": "n8n-nodes-base.set",
+          "position": [680, 300],
+          "parameters": {
+            "values": {
+              "string": [
+                {
+                  "name": "status",
+                  "value": "={{ $json.success ? 'success' : 'error' }}"
+                },
+                {
+                  "name": "data",
+                  "value": "={{ $json.data || $json.error }}"
+                },
+                {
+                  "name": "timestamp",
+                  "value": "={{ $json.timestamp }}"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "connections": {
+        "Manual Trigger": {
+          "main": [
+            [
+              {
+                "node": "Function Node - MCP Client",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Function Node - MCP Client": {
+          "main": [
+            [
+              {
+                "node": "Set Node - Format Response",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "MCP Get Tables Workflow",
+      "description": "Workflow para obtener lista de tablas usando MCP",
+      "nodes": [
+        {
+          "name": "Webhook Trigger",
+          "type": "n8n-nodes-base.webhook",
+          "position": [240, 300],
+          "parameters": {
+            "path": "mcp-tables",
+            "httpMethod": "GET"
+          }
+        },
+        {
+          "name": "Function Node - Get Tables",
+          "type": "n8n-nodes-base.function",
+          "position": [460, 300],
+          "parameters": {
+            "functionCode": "// Obtener lista de tablas usando MCP\nconst { processMCPRequest } = require('C:\\\\desk\\\\mcp-server\\\\n8n-mcp-client.js');\n\nasync function main() {\n  try {\n    const config = {\n      env: {\n        DB_HOST: 'SURDBP04',\n        DB_PORT: '1433',\n        DB_NAME: 'PRUEBA_MCP',\n        DB_USER: 'MCP',\n        DB_PASSWORD: 'm_25_9e_pe1_'\n      }\n    };\n    \n    const result = await processMCPRequest('get_tables', {}, config);\n    return result;\n  } catch (error) {\n    return {\n      success: false,\n      error: error.message,\n      timestamp: new Date().toISOString()\n    };\n  }\n}\n\nreturn await main();"
+          }
+        },
+        {
+          "name": "Respond to Webhook",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "position": [680, 300],
+          "parameters": {
+            "respondWith": "json",
+            "responseBody": "={{ $json }}"
+          }
+        }
+      ],
+      "connections": {
+        "Webhook Trigger": {
+          "main": [
+            [
+              {
+                "node": "Function Node - Get Tables",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Function Node - Get Tables": {
+          "main": [
+            [
+              {
+                "node": "Respond to Webhook",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "MCP Dynamic Query Workflow",
+      "description": "Workflow para ejecutar consultas dinámicas via webhook",
+      "nodes": [
+        {
+          "name": "Webhook Trigger",
+          "type": "n8n-nodes-base.webhook",
+          "position": [240, 300],
+          "parameters": {
+            "path": "mcp-query",
+            "httpMethod": "POST"
+          }
+        },
+        {
+          "name": "Function Node - Dynamic Query",
+          "type": "n8n-nodes-base.function",
+          "position": [460, 300],
+          "parameters": {
+            "functionCode": "// Ejecutar consulta dinámica usando MCP\nconst { processMCPRequest } = require('C:\\\\desk\\\\mcp-server\\\\n8n-mcp-client.js');\n\nasync function main() {\n  try {\n    // Obtener query del webhook\n    const query = $input.first().json.query;\n    \n    if (!query) {\n      return {\n        success: false,\n        error: 'Query parameter is required',\n        timestamp: new Date().toISOString()\n      };\n    }\n    \n    // Validar que sea una consulta SELECT\n    if (!query.trim().toLowerCase().startsWith('select')) {\n      return {\n        success: false,\n        error: 'Only SELECT queries are allowed',\n        timestamp: new Date().toISOString()\n      };\n    }\n    \n    const config = {\n      env: {\n        DB_HOST: 'SURDBP04',\n        DB_PORT:一下',\n        DB_NAME: 'PRUEBA_MCP',\n        DB_USER: 'MCP',\n        DB_PASSWORD: 'm_25_9e_pe1_'\n      }\n    };\n    \n    const result = await processMCPRequest('execute_query', {\n      query: query,\n      params: {}\n    }, config);\n    \n    return result;\n  } catch (error) {\n    return {\n      success: false,\n      error: error.message,\n      timestamp: new Date().toISOString()\n    };\n  }\n}\n\nreturn await main();"
+          }
+        },
+        {
+          "name": "Respond to Webhook",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "position": [680, 300],
+          "parameters": {
+            "respondWith": "json",
+            "responseBody": "={{ $json }}"
+          }
+        }
+      ],
+      "connections": {
+        "Webhook Trigger": {
+          "main": [
+            [
+              {
+                "node": "Function Node - Dynamic Query",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Function Node - Dynamic Query": {
+          "main": [
+            [
+              {
+                "node": "Respond to Webhook",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      }
+    }
+  ]
+}

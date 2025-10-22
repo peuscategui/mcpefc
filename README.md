@@ -274,6 +274,42 @@ Si tienes problemas o preguntas:
 3. Asegúrate de que tu SQL Server sea accesible
 4. Abre un issue en el repositorio
 
+## 🐳 Despliegue en Portainer
+
+### Configuración desde GitHub
+
+1. **Acceder a Portainer** → **Stacks** → **Add Stack**
+2. **Build method**: Repository
+3. **Repository URL**: `https://github.com/peuscategui/mcpefc`
+4. **Repository reference**: `refs/heads/main`
+5. **Compose path**: `docker-compose-swarm.yml`
+
+### Variables de entorno requeridas
+
+| Variable | Valor | Descripción |
+|----------|-------|-------------|
+| `DB_HOST` | `SURDBP04` | Servidor SQL Server |
+| `DB_PORT` | `1433` | Puerto SQL Server |
+| `DB_NAME` | `PRUEBA_MCP` | Base de datos |
+| `DB_USER` | `MCP` | Usuario SQL Server |
+| `DB_PASSWORD` | `m_25_9e_pe1_` | Contraseña |
+| `DB_ENCRYPT` | `true` | Encriptar conexión |
+| `DB_TRUST_SERVER_CERTIFICATE` | `true` | Confiar en certificado |
+| `LOG_LEVEL` | `info` | Nivel de logging |
+
+### Verificación del despliegue
+
+1. **Containers** → Busca `mcp-sql-server`
+2. **Status**: Debe ser "Running"
+3. **Health**: Debe ser "Healthy"
+4. **Logs**: Debe mostrar conexión exitosa a SQL Server
+
+### Troubleshooting Portainer
+
+- **Error de red**: Verificar que la red `mcp-network` sea accesible
+- **Error de build**: Confirmar que el repositorio GitHub sea accesible
+- **Error de conexión DB**: Verificar variables de entorno y conectividad
+
 ---
 
 **Nota**: Este servidor MCP está diseñado específicamente para consultas de solo lectura (SELECT). Para operaciones de escritura, considera implementar una API REST separada con las debidas validaciones y permisos.
