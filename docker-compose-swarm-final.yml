@@ -20,9 +20,11 @@ services:
         apk add --no-cache git &&
         echo '📦 Clonando repositorio...' &&
         git clone https://github.com/peuscategui/mcpefc.git /tmp/repo &&
+        mkdir -p /app &&
         cp -r /tmp/repo/* /app/ &&
         rm -rf /tmp/repo &&
         echo '📚 Instalando dependencias...' &&
+        cd /app &&
         npm ci --only=production &&
         echo '🔌 Iniciando servidor MCP...' &&
         node src/server.js
