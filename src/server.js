@@ -1,11 +1,13 @@
-const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
-const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
-const {
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-} = require('@modelcontextprotocol/sdk/types.js');
-const sql = require('mssql');
-require('dotenv').config();
+} from '@modelcontextprotocol/sdk/types.js';
+import sql from 'mssql';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 class MCPSQLServer {
   constructor() {

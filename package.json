@@ -2,6 +2,7 @@
   "name": "mcp-sql-server",
   "version": "1.0.0",
   "description": "MCP Server with Microsoft SQL Server connectivity",
+  "type": "module",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
