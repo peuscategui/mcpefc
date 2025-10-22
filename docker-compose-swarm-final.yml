@@ -26,8 +26,8 @@ services:
         echo '📚 Instalando dependencias...' &&
         cd /app &&
         npm install --production &&
-        echo '🔌 Iniciando servidor MCP HTTP...' &&
-        node mcp-http-server.js
+        echo '🔌 Iniciando servidor MCP TCP...' &&
+        node mcp-tcp-server.js
       "
     environment:
       - DB_HOST=${DB_HOST}
