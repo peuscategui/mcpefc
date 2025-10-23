@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "mcp-sql-server-production": {
+      "command": "node",
+      "args": [
+        "-e",
+        "const net = require('net'); const socket = new net.Socket(); socket.connect(3000, '192.168.40.197', () => { console.log('Connected to MCP server'); process.stdin.pipe(socket); socket.pipe(process.stdout); });"
+      ]
+    }
+  }
+}

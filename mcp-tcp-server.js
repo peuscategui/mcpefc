@@ -243,29 +243,39 @@ class MCPTCPServer {
       const tcpServer = net.createServer((socket) => {
         console.log('🔗 Cliente conectado al servidor MCP TCP');
         
-        // Configurar el servidor MCP para usar el socket
-        this.server.connect({
-          reader: {
-            read: () => {
-              return new Promise((resolve, reject) => {
-                socket.once('data', (data) => {
-                  resolve({ done: false, value: data });
-                });
-                socket.once('close', () => {
-                  resolve({ done: true });
-                });
-                socket.once('error', reject);
-              });
-            }
+        // Crear un transport personalizado para el socket TCP
+        const transport = {
+          start: async () => {
+            // Transport ya está iniciado con el socket
           },
-          writer: {
-            write: (data) => {
-              return new Promise((resolve, reject) => {
-                socket.write(data, (err) => {
-                  if (err) reject(err);
-                  else resolve();
-                });
-              });
+          close: async () => {
+            socket.end();
+          },
+          send: async (message) => {
+            const data = JSON.stringify(message) + '\n';
+            socket.write(data);
+          },
+          onMessage: null
+        };
+        
+        // Configurar el servidor MCP
+        await this.server.connect(transport);
+        
+        // Manejar datos entrantes
+        let buffer = '';
+        socket.on('data', (data) => {
+          buffer += data.toString();
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // Mantener la línea incompleta
+          
+          for (const line of lines) {
+            if (line.trim()) {
+              try {
+                const message = JSON.parse(line);
+                this.server.handleRequest(message);
+              } catch (err) {
+                console.error('❌ Error parseando mensaje:', err.message);
+              }
             }
           }
         });

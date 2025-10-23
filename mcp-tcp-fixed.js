@@ -25,6 +25,7 @@ class MCPSQLServer {
     );
 
     this.setupToolHandlers();
+    this.setupReconnection();
   }
 
   async connectToDatabase() {
@@ -50,11 +51,48 @@ class MCPSQLServer {
         },
       };
 
+      // Cerrar conexión existente si existe
+      if (this.pool) {
+        try {
+          await this.pool.close();
+        } catch (e) {
+          console.log('🔄 Cerrando conexión anterior...');
+        }
+      }
+
       this.pool = await sql.connect(config);
       console.log('✅ Conectado a Microsoft SQL Server');
+      this.isConnected = true;
     } catch (error) {
       console.error('❌ Error conectando a la base de datos:', error);
+      this.isConnected = false;
       throw error;
+    }
+  }
+
+  setupReconnection() {
+    // Verificar conexión cada 30 segundos
+    setInterval(async () => {
+      try {
+        if (!this.pool || !this.isConnected) {
+          console.log('🔄 Reconectando a la base de datos...');
+          await this.connectToDatabase();
+        } else {
+          // Verificar que la conexión esté activa
+          await this.pool.request().query('SELECT 1');
+        }
+      } catch (error) {
+        console.error('❌ Error en verificación de conexión:', error.message);
+        this.isConnected = false;
+      }
+    }, 30000);
+
+    // Manejar eventos de error del pool
+    if (this.pool) {
+      this.pool.on('error', (err) => {
+        console.error('❌ Error del pool de conexiones:', err.message);
+        this.isConnected = false;
+      });
     }
   }
 
@@ -131,111 +169,148 @@ class MCPSQLServer {
   }
 
   async getTables() {
-    const result = await this.pool.request().query(`
-      SELECT 
-        TABLE_SCHEMA as schema_name,
-        TABLE_NAME as table_name,
-        TABLE_TYPE as table_type
-      FROM INFORMATION_SCHEMA.TABLES 
-      WHERE TABLE_TYPE = 'BASE TABLE'
-      ORDER BY TABLE_SCHEMA, TABLE_NAME
-    `);
+    try {
+      // Verificar conexión antes de ejecutar
+      if (!this.isConnected || !this.pool) {
+        console.log('🔄 Reconectando antes de ejecutar get_tables...');
+        await this.connectToDatabase();
+      }
 
-    const tables = result.recordset.map(row => 
-      `📋 **${row.schema_name}.${row.table_name}** (${row.table_type})`
-    ).join('\n');
+      const result = await this.pool.request().query(`
+        SELECT 
+          TABLE_SCHEMA as schema_name,
+          TABLE_NAME as table_name,
+          TABLE_TYPE as table_type
+        FROM INFORMATION_SCHEMA.TABLES 
+        WHERE TABLE_TYPE = 'BASE TABLE'
+        ORDER BY TABLE_SCHEMA, TABLE_NAME
+      `);
 
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `🗄️ **Tablas en la base de datos:**\n\n${tables}\n\n📊 Total: ${result.recordset.length} tablas`,
-        },
-      ],
-    };
+      const tables = result.recordset.map(row => 
+        `📋 **${row.schema_name}.${row.table_name}** (${row.table_type})`
+      ).join('\n');
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🗄️ **Tablas en la base de datos:**\n\n${tables}\n\n📊 Total: ${result.recordset.length} tablas`,
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('❌ Error en getTables:', error.message);
+      this.isConnected = false;
+      throw error;
+    }
   }
 
   async describeTable(tableName) {
-    const result = await this.pool.request()
-      .input('tableName', sql.NVarChar, tableName)
-      .query(`
-        SELECT 
-          COLUMN_NAME as column_name,
-          DATA_TYPE as data_type,
-          CHARACTER_MAXIMUM_LENGTH as max_length,
-          IS_NULLABLE as is_nullable,
-          COLUMN_DEFAULT as default_value
-        FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_NAME = @tableName
-        ORDER BY ORDINAL_POSITION
-      `);
+    try {
+      // Verificar conexión antes de ejecutar
+      if (!this.isConnected || !this.pool) {
+        console.log('🔄 Reconectando antes de ejecutar describe_table...');
+        await this.connectToDatabase();
+      }
 
-    if (result.recordset.length === 0) {
+      const result = await this.pool.request()
+        .input('tableName', sql.NVarChar, tableName)
+        .query(`
+          SELECT 
+            COLUMN_NAME as column_name,
+            DATA_TYPE as data_type,
+            CHARACTER_MAXIMUM_LENGTH as max_length,
+            IS_NULLABLE as is_nullable,
+            COLUMN_DEFAULT as default_value
+          FROM INFORMATION_SCHEMA.COLUMNS 
+          WHERE TABLE_NAME = @tableName
+          ORDER BY ORDINAL_POSITION
+        `);
+
+      if (result.recordset.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `❌ Tabla '${tableName}' no encontrada`,
+            },
+          ],
+        };
+      }
+
+      const columns = result.recordset.map(col => {
+        const nullable = col.is_nullable === 'YES' ? 'NULL' : 'NOT NULL';
+        const length = col.max_length ? `(${col.max_length})` : '';
+        const defaultValue = col.default_value ? ` DEFAULT ${col.default_value}` : '';
+        
+        return `  • **${col.column_name}**: ${col.data_type}${length} ${nullable}${defaultValue}`;
+      }).join('\n');
+
       return {
         content: [
           {
             type: 'text',
-            text: `❌ Tabla '${tableName}' no encontrada`,
+            text: `📋 **Estructura de la tabla '${tableName}':**\n\n${columns}\n\n📊 Total: ${result.recordset.length} columnas`,
           },
         ],
       };
+    } catch (error) {
+      console.error('❌ Error en describeTable:', error.message);
+      this.isConnected = false;
+      throw error;
     }
-
-    const columns = result.recordset.map(col => {
-      const nullable = col.is_nullable === 'YES' ? 'NULL' : 'NOT NULL';
-      const length = col.max_length ? `(${col.max_length})` : '';
-      const defaultValue = col.default_value ? ` DEFAULT ${col.default_value}` : '';
-      
-      return `  • **${col.column_name}**: ${col.data_type}${length} ${nullable}${defaultValue}`;
-    }).join('\n');
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `📋 **Estructura de la tabla '${tableName}':**\n\n${columns}\n\n📊 Total: ${result.recordset.length} columnas`,
-        },
-      ],
-    };
   }
 
   async executeQuery(query) {
-    const result = await this.pool.request().query(query);
-    
-    if (result.recordset.length === 0) {
+    try {
+      // Verificar conexión antes de ejecutar
+      if (!this.isConnected || !this.pool) {
+        console.log('🔄 Reconectando antes de ejecutar execute_query...');
+        await this.connectToDatabase();
+      }
+
+      const result = await this.pool.request().query(query);
+      
+      if (result.recordset.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `✅ Consulta ejecutada exitosamente.\n📊 Filas afectadas: ${result.rowsAffected[0] || 0}`,
+            },
+          ],
+        };
+      }
+
+      const headers = Object.keys(result.recordset[0]);
+      const rows = result.recordset.map(row => 
+        headers.map(header => row[header] || 'NULL').join(' | ')
+      );
+
+      const table = [
+        headers.join(' | '),
+        headers.map(() => '---').join(' | '),
+        ...rows
+      ].join('\n');
+
       return {
         content: [
           {
             type: 'text',
-            text: `✅ Consulta ejecutada exitosamente.\n📊 Filas afectadas: ${result.rowsAffected[0] || 0}`,
+            text: `✅ **Resultados de la consulta:**\n\n${table}\n\n📊 Total: ${result.recordset.length} filas`,
           },
         ],
       };
+    } catch (error) {
+      console.error('❌ Error en executeQuery:', error.message);
+      this.isConnected = false;
+      throw error;
     }
-
-    const headers = Object.keys(result.recordset[0]);
-    const rows = result.recordset.map(row => 
-      headers.map(header => row[header] || 'NULL').join(' | ')
-    );
-
-    const table = [
-      headers.join(' | '),
-      headers.map(() => '---').join(' | '),
-      ...rows
-    ].join('\n');
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `✅ **Resultados de la consulta:**\n\n${table}\n\n📊 Total: ${result.recordset.length} filas`,
-        },
-      ],
-    };
   }
 
   async start() {
     try {
+      console.log('🚀 Iniciando servidor MCP TCP con reconexión automática...');
       await this.connectToDatabase();
       
       const port = process.env.MCP_PORT || 3000;
@@ -384,6 +459,19 @@ class MCPSQLServer {
       tcpServer.listen(port, () => {
         console.log(`🚀 Servidor MCP TCP iniciado en puerto ${port}`);
         console.log(`📍 Conecta desde Claude Desktop usando: ${process.env.MCP_HOST || 'localhost'}:${port}`);
+        console.log('🔄 Reconexión automática activada cada 30 segundos');
+      });
+
+      // Manejar errores del servidor TCP
+      tcpServer.on('error', (err) => {
+        console.error('❌ Error del servidor TCP:', err.message);
+        if (err.code === 'EADDRINUSE') {
+          console.log(`⚠️  Puerto ${port} ya está en uso. Intentando con otro puerto...`);
+          tcpServer.listen(0, () => {
+            const actualPort = tcpServer.address().port;
+            console.log(`🚀 Servidor MCP TCP iniciado en puerto ${actualPort}`);
+          });
+        }
       });
       
     } catch (error) {
@@ -395,19 +483,39 @@ class MCPSQLServer {
 
 // Manejo de señales para cierre limpio
 process.on('SIGINT', async () => {
-  console.log('Cerrando servidor MCP TCP...');
-  if (sql) {
-    await sql.close();
+  console.log('🛑 Cerrando servidor MCP TCP...');
+  if (mcpServer && mcpServer.pool) {
+    try {
+      await mcpServer.pool.close();
+      console.log('✅ Conexión a la base de datos cerrada');
+    } catch (error) {
+      console.error('❌ Error cerrando conexión:', error.message);
+    }
   }
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.log('Cerrando servidor MCP TCP...');
-  if (sql) {
-    await sql.close();
+  console.log('🛑 Cerrando servidor MCP TCP...');
+  if (mcpServer && mcpServer.pool) {
+    try {
+      await mcpServer.pool.close();
+      console.log('✅ Conexión a la base de datos cerrada');
+    } catch (error) {
+      console.error('❌ Error cerrando conexión:', error.message);
+    }
   }
   process.exit(0);
+});
+
+// Manejar errores no capturados
+process.on('uncaughtException', (error) => {
+  console.error('❌ Error no capturado:', error.message);
+  console.error('Stack:', error.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Promesa rechazada no manejada:', reason);
 });
 
 // Iniciar el servidor
